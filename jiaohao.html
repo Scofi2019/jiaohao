@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <link href="css/style.css" rel="stylesheet">
+	<link href="css/jiaohao.css" rel="stylesheet">
+</head>
+<body class="jh-body">
+    <div class="jh-box">
+	    <div class="jh-box-head">
+		    <div class="jh-box-title"><i class="icon-logo"></i>排队叫号
+	        </div>
+			<div class="jh-box-location" id="deptName">未知
+	        </div>
+			<div class="jh-box-date"><span class="date"><span class="str"></span>&nbsp;<span class="time"></span></span>
+	        </div>
+			<div class="jh-box-split">
+			</div>
+	    </div>
+		<div class="jh-box-body">
+		    <div class="jh-box-call">
+			    <i class="icon-call"></i><span id="callMsg">等待叫号</span>
+	        </div>
+			<div class="jh-box-list l">
+			    <div class="jh-box-list-head">
+				    <div class="jh-box-list-tr">
+					    <div class="jh-box-list-th th-3">顺 序
+						</div>
+						<div class="jh-box-list-th th-3">编 号
+						</div>
+						<div class="jh-box-list-th th-6">预约客户
+						</div>
+					</div>
+				</div>
+				<div class="jh-box-list-body">
+				</div>
+	        </div>
+			<div class="jh-box-list c"></div>
+			<div class="jh-box-list r">
+			    <div class="jh-box-list-head">
+				    <div class="jh-box-list-tr">
+					    <div class="jh-box-list-th th-3">顺 序
+						</div>
+						<div class="jh-box-list-th th-3">编 号
+						</div>
+						<div class="jh-box-list-th th-6">现场客户
+						</div>
+					</div>
+				</div>
+				<div class="jh-box-list-body">
+				</div>
+	        </div>
+	    </div>
+		<div class="jh-box-foot">
+		    <div class="jh-box-prompt">
+			    <div class="jh-box-prompt-content">
+				    <i class="icon-prompt"></i>
+				    <div class="msg" id="promptMsg">
+					    温馨提示：请未叫到号的客户在候诊大厅耐心等待，谢谢!
+					</div>
+				</div>
+	        </div>
+	    </div>
+	</div>
+</body>
+
+<audio autoplay="autoplay" id="msgSound" src=""></audio>
+
+<script src="js/config.js"></script>
+<script src="js/util.js"></script>
+<script src="js/jiaohao.js"></script>
