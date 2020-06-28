@@ -69,14 +69,30 @@ var jiaohao = {
     		
     		this.ref.onerror = function () {
     			console.log("WebSocket连接发生错误");
+                jiaohao.websocket.reconnect();
         	};
         	this.ref.onopen = function (evt) {
         		console.log("WebSocket连接成功");
         	};
         	this.ref.onclose = function () {
         		console.log("WebSocket连接关闭");
+                jiaohao.websocket.reconnect();
         	};
     	},
+		reconnect : function(){
+			try{
+				if(this._websocket_reconnect){
+					clearInterval(this._websocket_reconnect);
+					this._websocket_reconnect = null;
+			    }
+			}catch(e){
+				console.log(e);
+			}
+
+			this._websocket_reconnect = setInterval(function(){
+				jiaohao.websocket.init();
+			}, 10000);	
+		},
     	send : function(message){
     		this.ref.send(message);
     	},
@@ -176,7 +192,7 @@ var jiaohao = {
 					   '</div>';
 			}
 		},
-		//叫号客户信息
+		//叫号
 		call : {
 			set : function(msg){
 				callMsg.innerHTML = msg;
