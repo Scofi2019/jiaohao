@@ -1,26 +1,44 @@
 //叫号对象
 var jiaohao = {
 	init : function(){
-		var myself = this;
-
 		window.onload = function(){
-			myself.resize();
-			myself.websocket.init();
+			jiaohao.resize();
 
-            var d = jiaohao.query();
+			//初始化websocket
+			jiaohao.websocket.init();
+            
+			//初始化待叫号队列
+			jiaohao.data.queue.init();
 
-            //设置待叫号排队列表
-			jiaohao.data.queue.buildUI(d.reserveData, true, "l");
-			//设置待叫号现场列表
-			jiaohao.data.queue.buildUI(d.registData, true, "r");
+            //定义刷新待叫号队列函数
+            jiaohao.refreshQueue = function(){
+				jiaohao.queryQueue(function(d){
+					//设置左侧待叫号排队列表
+					jiaohao.data.queue.buildUI(d[config.l.queueType], true, "l");
+					//设置右侧待叫号排队列表
+					jiaohao.data.queue.buildUI(d[config.r.queueType], true, "r");
+				});
+            };
+            
+			//立即执行刷新队列
+			jiaohao.refreshQueue();
+
+            //定时刷新待叫号队列数据
+			setInterval(function(){
+				jiaohao.refreshQueue();
+			}, 5000);
+
+            //查询提示信息
+            jiaohao.queryTips(function(d){
+				jiaohao.data.prompt.set(d.tips);
+				jiaohao.data.other.setDept(d.deptInfo.DEPTNAME);
+            });
 			//设置当前时间
 			jiaohao.data.other.setTime();
-			//设置当前科室
-			jiaohao.data.other.setDept("脱毛");
 		}
 
 		window.onresize = function(){
-			myself.resize();
+			jiaohao.resize();
 		}
 	},
     //页面自适应
@@ -34,7 +52,7 @@ var jiaohao = {
 		boxB.style.height = (window.innerHeight - boxH.offsetHeight - boxF.offsetHeight - 70) + "px";
 		blc.style.height = (window.innerHeight - boxH.offsetHeight - boxF.offsetHeight - bcall.offsetHeight - 70) + "px";
     },
-	//web交互端口
+	//webscoket交互对象
     websocket:{
     	init : function(){
     		var myself = this;
@@ -61,11 +79,9 @@ var jiaohao = {
                 jiaohao.data.call.set(body);
 				//触发语音播叫
                 jiaohao.sound.trigger(head.qID);
+
+				jiaohao.refreshQueue();
         	};
-    		
-    		window.onbeforeunload = function () {
-    			myself.ref.close();
-    		}
     		
     		this.ref.onerror = function () {
     			console.log("WebSocket连接发生错误");
@@ -73,13 +89,15 @@ var jiaohao = {
         	};
         	this.ref.onopen = function (evt) {
         		console.log("WebSocket连接成功");
+				jiaohao.websocket.clearrec();
         	};
         	this.ref.onclose = function () {
         		console.log("WebSocket连接关闭");
-                jiaohao.websocket.reconnect();
+				jiaohao.websocket.reconnect();
         	};
     	},
-		reconnect : function(){
+		//清除定时重连任务
+		clearrec : function(){
 			try{
 				if(this._websocket_reconnect){
 					clearInterval(this._websocket_reconnect);
@@ -88,25 +106,30 @@ var jiaohao = {
 			}catch(e){
 				console.log(e);
 			}
-
+		},
+		//重新连接
+		reconnect : function(){
+            this.clearrec();
 			this._websocket_reconnect = setInterval(function(){
 				jiaohao.websocket.init();
 			}, 10000);	
 		},
+	    //发送消息
     	send : function(message){
     		this.ref.send(message);
     	},
+		//关闭连接
     	close : function(){
     		this.ref.close();
     	}
     },
-	//数据
+	//数据绑定
 	data : {
         //待叫号客户队列
 		queue : {
 			//排队类别
 			collection : {
-				//预约排队
+				//左侧排队列表
 				l : {
 					value : "l",
 					//总页数
@@ -118,7 +141,7 @@ var jiaohao = {
 					//默认翻页时间
 					pageTime : 5000,
 				},
-				//现场排队
+				//右侧排队列表
 				r : {
 					value : "r",
 					//总页数
@@ -129,6 +152,39 @@ var jiaohao = {
 					rowNum : 1,
 					//默认翻页时间
 					pageTime : 5000,
+				}
+			},
+			//初始化
+			init : function(){
+				var lths = document.querySelectorAll(".jh-box-list.l>.jh-box-list-head>.jh-box-list-tr>.jh-box-list-th");
+				var rths = document.querySelectorAll(".jh-box-list.r>.jh-box-list-head>.jh-box-list-tr>.jh-box-list-th");
+
+				for(var i = 0; i < lths.length; i++){
+					var th = lths[i];
+					th.innerHTML = config.l.colName[th.getAttribute("name")];
+				}
+
+				for(var i = 0; i < lths.length; i++){
+					var th = rths[i];
+					th.innerHTML = config.r.colName[th.getAttribute("name")];
+				}
+
+				if(config.l.hidden){
+					document.querySelector(".jh-box-list.l").classList.add("hidden");
+					if(!config.r.hidden){
+                        document.querySelector(".jh-box-list.r").style.width = "100%";
+					}
+				}
+                
+				if(config.r.hidden){
+					document.querySelector(".jh-box-list.r").classList.add("hidden");
+					if(!config.l.hidden){
+                        document.querySelector(".jh-box-list.l").style.width = "100%";
+					}
+				}
+
+				if(config.l.hidden || config.r.hidden){
+					document.querySelector(".jh-box-list.c").classList.add("hidden");
 				}
 			},
 			//构造显示UI
@@ -148,11 +204,11 @@ var jiaohao = {
 					blh = document.querySelector(".jh-box-list.l>.jh-box-list-head");
 					
 					var q = colt.queueList[0];
-					blb.innerHTML = this._createElement(q.sortNo, q.queuecode, q.cusname);
+					blb.innerHTML = this._createElement(q.sortNo, q.queueCode, q.custName);
 
 					var maxHeight = boxB.offsetHeight - bc.offsetHeight - blh.offsetHeight;
 
-					var blbt = document.querySelector(".jh-box-list.l>.jh-box-list-body>.jh-box-list-tr"),
+					var blbt = document.querySelector(".jh-box-list."+type+">.jh-box-list-body>.jh-box-list-tr"),
 				    style = blbt.currentStyle || window.getComputedStyle(blbt);
 
 					colt.rowNum = parseInt(maxHeight / (blbt.offsetHeight + parseFloat(style.marginTop.replace("px","")) + parseFloat(style.marginBottom.replace("px",""))));
@@ -175,7 +231,7 @@ var jiaohao = {
 				var html = "";
 				for(var i = colt.startNum; i < colt.endNum; i++){
 					var q = colt.queueList[i];
-                    html += this._createElement(q.sortNo, q.queuecode, q.cusname);
+                    html += this._createElement(q.sortNo, q.queueCode, q.custName);
 				}
 
                 blb.innerHTML += html; 
@@ -210,8 +266,29 @@ var jiaohao = {
 		},
 		//提示信息
 		prompt : {
-			insert : function(msg){
-				promptMsg.innerHTML = msg;
+			set : function(data){
+				if(!data) return;
+				var htm = "<ul>";
+				for(var i = 0; i < data.length; i++){
+					htm += "<li>" + data[i].tips + "</li>";
+				}
+				htm += "</ul>";
+				promptMsg.innerHTML = htm;
+
+				if(data.length > 1){
+					var lis = document.querySelectorAll("#promptMsg>ul>li");
+					var k = 0;
+					setInterval(function(){
+						lis[k].style.display = "none";
+						k++;
+						if(k > lis.length - 1){
+							k = 0;
+							for(var i=0;i<lis.length;i++){
+								lis[i].style.display = "";
+							}
+						}
+					}, 5000);
+				}
 			}
 		},
 		//科室、时间等信息
@@ -231,23 +308,88 @@ var jiaohao = {
 		    }
 		}
 	},
-	//查询数据
-	query : function(){
-		var data = [];
-		for(var i=0;i<4;i++){
-			data.push({sortNo:(i+1), queuecode:"A00"+(i+1), cusname:"张**"});
+	//查询待叫号队列数据
+	queryQueue : function(callback){
+		var param = {
+			tenantID : config.tenantId, 
+			qsCode : config.l.queueType + "," + config.r.queueType
+		};
+        
+		this.ajax({
+			method : "POST",
+			url : "http://" + config.serverUrl + "/queue/findPreCallQueueList",
+			postData : param,
+			dataType : "json",
+			success : function(data){
+			    callback(data);
+			}
+		});
+	},
+	//查询提示信息
+	queryTips : function(callback){
+		var param = {
+			tenantID : config.tenantId, 
+			deptId : config.deptId,
+			qsCode : config.l.queueType + "," + config.r.queueType
+		};
+        
+		this.ajax({
+			method : "POST",
+			url : "http://" + config.serverUrl + "/queue/findQueueTipList",
+			postData : param,
+			dataType : "json",
+			success : function(data){
+			    callback(data);
+			}
+		});
+	},
+    //封装发送请求
+	ajax : function(opt){
+		var defaultOption = {
+			method : "GET",
+			url : "",
+			async : true,
+			postData : null,
+			dataType : "json"
 		}
+		var option = extend(defaultOption, opt);
 
-		var data2 = [];
-		for(var j=0;j<3;j++){
-			data2.push({sortNo:(j+1), queuecode:"B00"+(j+1), cusname:"李**"});
-		}
-		return {reserveData:data, registData:data2};
+		var xhr = new XMLHttpRequest();
+
+        xhr.open(option.method, option.url, option.async);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+
+        var param = "";
+        if(option.postData){
+			for(var i in option.postData){
+				param += i + "=" + option.postData[i] + "&";
+			}
+        }
+        xhr.send(param);
+
+        // 请求成功
+		xhr.addEventListener("load", function(e){
+		    if (xhr.status == 200) {
+				if(option.dataType.toLowerCase() == "json"){
+					option.success(JSON.parse(xhr.responseText));
+				}else{
+					option.success(xhr.responseText);
+				}
+            }
+		});
+
+		// 请求出错
+		xhr.addEventListener("error", function(e){
+		});
+
+		// 请求超时
+		xhr.addEventListener("timeout", function(e){
+		});
 	},
 	//播报语音
 	sound : {
 		trigger : function(name){
-			msgSound.setAttribute("src", "http://"+config.serverUrl+"/tts/"+name+".wav");
+			msgSound.setAttribute("src", "http://" + config.serverUrl + "/tts/" + name + ".wav");
 			msgSound.play();
 		}
 	}

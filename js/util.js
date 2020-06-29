@@ -46,3 +46,29 @@ function getWeekStr(sdate){
 	}
 	return "";
 }
+
+/**
+ * 扩展对象的属性
+ */
+function extend(source, common){
+	var copy = function(obj, common){
+		if(typeof obj === "function"){
+			for(var i in common){
+				obj.prototype[i] = common[i];
+			}
+		}else{
+			for(var i in common){
+				obj[i] = common[i];
+			}
+		}
+		return obj;
+	};
+
+	if(source.constructor === Array){
+		for(var i in source){
+			copy(source[i], common);
+		}
+	}else{
+		return copy(source, common);
+	}
+};

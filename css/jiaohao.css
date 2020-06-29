@@ -104,9 +104,17 @@
 	vertical-align:top;
 }
 
+.jh-box-list.l.hidden{
+    display:none;
+}
+
 .jh-box-list.r{
     width:48%;
 	vertical-align:top;
+}
+
+.jh-box-list.r.hidden{
+    display:none;
 }
 
 .jh-box-list.c{
@@ -114,6 +122,10 @@
 	height:300px;
 	background-image:linear-gradient(#dff1f8, #6f95a5,#caeaf4);
 	margin:10px 10px 0px 10px;
+}
+
+.jh-box-list.c.hidden{
+    display:none;
 }
 
 .jh-box-list>.jh-box-list-head{
@@ -207,4 +219,14 @@
 	top:10px;
 	left:60px;
 	line-height:30px;
+	max-height: 30px;
+    overflow: hidden;
+}
+
+.jh-box-prompt>.jh-box-prompt-content>.msg>ul{
+    margin:0px;
+}
+
+.jh-box-prompt>.jh-box-prompt-content>.msg>ul>li{
+	list-style:none;
 }
