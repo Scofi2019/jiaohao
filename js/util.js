@@ -50,15 +50,23 @@ function getWeekStr(sdate){
 /**
  * 扩展对象的属性
  */
-function extend(source, common){
+function extend(source, common, nullNotOver){
 	var copy = function(obj, common){
 		if(typeof obj === "function"){
 			for(var i in common){
-				obj.prototype[i] = common[i];
+				if(!(nullNotOver && !common[i])){
+					obj.prototype[i] = common[i];
+				}
 			}
 		}else{
 			for(var i in common){
-				obj[i] = common[i];
+				if(obj[i] != null && obj[i].constructor === Object){
+					obj[i] = copy(obj[i], common[i]);
+				}else{
+					if(!(nullNotOver && !common[i])){
+						obj[i] = common[i];
+					}
+				}
 			}
 		}
 		return obj;

@@ -1,7 +1,9 @@
 //叫号对象
 var jiaohao = {
 	init : function(){
+		window.configX = this.getConfig();
 		window.onload = function(){
+			jiaohao.fullScreen();
 			jiaohao.resize();
 
 			//初始化websocket
@@ -11,22 +13,24 @@ var jiaohao = {
 			jiaohao.data.queue.init();
 
             //定义刷新待叫号队列函数
-            jiaohao.refreshQueue = function(){
+            jiaohao.refreshQueue = function(param){
 				jiaohao.queryQueue(function(d){
 					//设置左侧待叫号排队列表
-					jiaohao.data.queue.buildUI(d[config.l.queueType], true, "l");
+					jiaohao.data.queue.buildUI(d[configX.l.queueType], true, "l");
 					//设置右侧待叫号排队列表
-					jiaohao.data.queue.buildUI(d[config.r.queueType], true, "r");
-				});
+					jiaohao.data.queue.buildUI(d[configX.r.queueType], true, "r");
+					//设置已叫号客户编号信息
+					jiaohao.data.called.set(d.called, param&&param.called=="1");
+				}, param);
             };
             
 			//立即执行刷新队列
 			jiaohao.refreshQueue();
 
             //定时刷新待叫号队列数据
-			setInterval(function(){
+			jiaohao.addInterval(function(){
 				jiaohao.refreshQueue();
-			}, 5000);
+			}, configX.queueInterval, "refreshQueue", "待叫号队列数据刷新");
 
             //查询提示信息
             jiaohao.queryTips(function(d){
@@ -58,8 +62,8 @@ var jiaohao = {
     		var myself = this;
     		//判断当前浏览器是否支持WebSocket
     		if ('WebSocket' in window) {
-				var sessionId = config.tenantId + "_" + config.deptId;
-    			this.ref = new WebSocket("ws://"+config.serverUrl+"/websocket?httpSessionId="+sessionId+"&tenantId="+config.tenantId+"&deptId="+config.deptId);
+				var sessionId = configX.tenantId + "_" + configX.deptId;
+    			this.ref = new WebSocket("ws://"+configX.serverUrl+"/websocket?httpSessionId="+sessionId+"&tenantId="+configX.tenantId+"&deptId="+configX.deptId);
     		}else {
     		    alert('当前浏览器不支持websocket功能');
     		}
@@ -77,10 +81,12 @@ var jiaohao = {
 
 				//设置当前叫号内容
                 jiaohao.data.call.set(body);
-				//触发语音播叫
-                jiaohao.sound.trigger(head.qID);
 
-				jiaohao.refreshQueue();
+                //触发语音播叫
+                jiaohao.sound.trigger(head.qID);
+                
+                //刷新待叫号队列数据和已叫号数据
+				jiaohao.refreshQueue({called:1});
         	};
     		
     		this.ref.onerror = function () {
@@ -137,9 +143,7 @@ var jiaohao = {
 					//当前页
 					pageNo : 1,
 					//每页行数量
-					rowNum : 1,
-					//默认翻页时间
-					pageTime : 5000,
+					rowNum : 1
 				},
 				//右侧排队列表
 				r : {
@@ -149,9 +153,7 @@ var jiaohao = {
 					//当前页
 					pageNo : 1,
 					//每页行数量
-					rowNum : 1,
-					//默认翻页时间
-					pageTime : 5000,
+					rowNum : 1
 				}
 			},
 			//初始化
@@ -161,29 +163,30 @@ var jiaohao = {
 
 				for(var i = 0; i < lths.length; i++){
 					var th = lths[i];
-					th.innerHTML = config.l.colName[th.getAttribute("name")];
+					th.innerHTML = configX.l.colName[th.getAttribute("name")];
 				}
 
 				for(var i = 0; i < lths.length; i++){
 					var th = rths[i];
-					th.innerHTML = config.r.colName[th.getAttribute("name")];
+					th.innerHTML = configX.r.colName[th.getAttribute("name")];
 				}
 
-				if(config.l.hidden){
+				if(configX.l.hidden && configX.l.hidden != "false"){
 					document.querySelector(".jh-box-list.l").classList.add("hidden");
-					if(!config.r.hidden){
+					if(!configX.r.hidden){
                         document.querySelector(".jh-box-list.r").style.width = "100%";
 					}
 				}
                 
-				if(config.r.hidden){
+				if(configX.r.hidden && configX.l.hidden != "false"){
 					document.querySelector(".jh-box-list.r").classList.add("hidden");
-					if(!config.l.hidden){
+					if(!configX.l.hidden){
                         document.querySelector(".jh-box-list.l").style.width = "100%";
 					}
 				}
 
-				if(config.l.hidden || config.r.hidden){
+				if((configX.l.hidden && configX.l.hidden != "false") || 
+				   (configX.r.hidden && configX.l.hidden != "false")){
 					document.querySelector(".jh-box-list.c").classList.add("hidden");
 				}
 			},
@@ -218,9 +221,9 @@ var jiaohao = {
 					colt.endNum = colt.queueList.length < colt.rowNum ? colt.queueList.length : colt.rowNum;
 
 					if(colt.pageSize > 1){
-						colt._interval = setInterval(function(){
+						colt._interval = jiaohao.addInterval(function(){
 						    jiaohao.data.queue.buildUI(null, null, colt.value);
-					    }, colt.pageTime);
+					    }, configX[type].pageInterval, type + "page", (type=="l"?"左侧":"右侧")+"列表翻页");
 					}
                 }else{
 					colt.pageNo = colt.pageNo < colt.pageSize ? (colt.pageNo + 1) : 1;
@@ -264,6 +267,24 @@ var jiaohao = {
 				}, 500);
 			}
 		},
+		//已叫号
+		called : {
+			set : function(data, clear){
+				var htm = "";
+				
+				if(clear){
+					calledQueueCode.innerHTML = htm;
+				}
+				
+				if(!data || data.length == 0) return;
+				
+				for(var i=0;i<data.length;i++){
+					htm += data[i].queueCode + "&nbsp;&nbsp;";
+				}
+				
+				calledQueueCode.innerHTML = htm;
+			}
+		},
 		//提示信息
 		prompt : {
 			set : function(data){
@@ -278,7 +299,7 @@ var jiaohao = {
 				if(data.length > 1){
 					var lis = document.querySelectorAll("#promptMsg>ul>li");
 					var k = 0;
-					setInterval(function(){
+					jiaohao.addInterval(function(){
 						lis[k].style.display = "none";
 						k++;
 						if(k > lis.length - 1){
@@ -287,7 +308,7 @@ var jiaohao = {
 								lis[i].style.display = "";
 							}
 						}
-					}, 5000);
+					}, 5000, "prompt", "提示信息刷新");
 				}
 			}
 		},
@@ -302,22 +323,23 @@ var jiaohao = {
 				document.querySelector(".jh-box-date>.date>.str").innerHTML = d.Format("yyyy年MM月dd日") + " " + getWeekStr(d.Format("yyyy-MM-dd"));
 				document.querySelector(".jh-box-date>.date>.time").innerHTML = d.Format("HH:mm");
 
-				setInterval(function(){
+				jiaohao.addInterval(function(){
 					jiaohao.data.other.setTime();
-				}, 10000);
+				}, 10000, "setTime", "显示时间刷新"); 
 		    }
 		}
 	},
 	//查询待叫号队列数据
-	queryQueue : function(callback){
+	queryQueue : function(callback, option){
 		var param = {
-			tenantID : config.tenantId, 
-			qsCode : config.l.queueType + "," + config.r.queueType
+			tenantID : configX.tenantId, 
+			qsCode : configX.l.queueType + "," + configX.r.queueType,
+			called : option?option.called:""
 		};
         
 		this.ajax({
 			method : "POST",
-			url : "http://" + config.serverUrl + "/queue/findPreCallQueueList",
+			url : "http://" + configX.serverUrl + "/queue/findPreCallQueueList",
 			postData : param,
 			dataType : "json",
 			success : function(data){
@@ -328,14 +350,14 @@ var jiaohao = {
 	//查询提示信息
 	queryTips : function(callback){
 		var param = {
-			tenantID : config.tenantId, 
-			deptId : config.deptId,
-			qsCode : config.l.queueType + "," + config.r.queueType
+			tenantID : configX.tenantId, 
+			deptId : configX.deptId,
+			qsCode : configX.l.queueType + "," + configX.r.queueType
 		};
         
 		this.ajax({
 			method : "POST",
-			url : "http://" + config.serverUrl + "/queue/findQueueTipList",
+			url : "http://" + configX.serverUrl + "/queue/findQueueTipList",
 			postData : param,
 			dataType : "json",
 			success : function(data){
@@ -389,10 +411,110 @@ var jiaohao = {
 	//播报语音
 	sound : {
 		trigger : function(name){
-			msgSound.setAttribute("src", "http://" + config.serverUrl + "/tts/" + name + ".wav");
+			msgSound.setAttribute("src", "http://" + configX.serverUrl + "/tts/" + name + ".wav");
 			msgSound.play();
 		}
-	}
+	},
+	//设置全屏显示或退出全屏显示(Chrome代码全屏无效，只能手动触发全屏)
+    fullScreen : function(){
+		var element = document.documentElement;
+		if(!this.isFullScreen) {
+			// 判断浏览器设备类型
+			if(element.requestFullscreen) {
+				element.requestFullscreen();
+			} else if (element.mozRequestFullScreen){	// 兼容火狐
+				element.mozRequestFullScreen();
+			} else if(element.webkitRequestFullscreen) {	// 兼容谷歌
+				element.webkitRequestFullscreen();
+			} else if (element.msRequestFullscreen) {	// 兼容IE
+				if(window.ActiveXObject.length > 0) {
+	                //这的方法 模拟f11键，使浏览器全屏
+	                var wscript = new ActiveXObject("WScript.Shell");
+	                if(wscript != null) {
+	                    wscript.SendKeys("{F11}");
+	                }
+	            }else{
+	            	element.msRequestFullscreen();
+	            }
+			}
+		} else {			
+			//	退出全屏
+			if(document.exitFullscreen) {
+				document.exitFullscreen();
+			} else if (document.mozCancelFullScreen) {
+				document.mozCancelFullScreen();
+			} else if (document.webkitCancelFullScreen) {
+				document.webkitCancelFullScreen();
+			} else if (document.msExitFullscreen) {
+				if(window.ActiveXObject.length > 0) {
+	                //这的方法 模拟f11键，使浏览器全屏
+	                var wscript = new ActiveXObject("WScript.Shell");
+	                if(wscript != null) {
+	                    wscript.SendKeys("{F11}");
+	                }
+	            }else{
+	            	element.msExitFullscreen();
+	            }
+			}
+		}
+		this.isFullScreen = !this.isFullScreen;
+    },
+    //获取配置
+    getConfig : function(){
+    	//后台返回的参数
+    	var param = urlParam.value;
+    	
+    	if(param){
+    		param = JSON.parse(param);
+    	}
+    	
+    	var conf = {
+			serverUrl : param.serverUrl,
+	    	tenantId : param.tenantId,
+	    	deptId : param.deptId,
+	    	queueInterval : param.queueInterval,
+			l : {
+				queueType : param.lQueueType,
+				hidden : param.lHidden,
+				colName : {
+					sortNo : param.lsortNo,
+					queueCode : param.lqueueCode,
+					custName : param.lcustName
+				},
+				pageInterval : param.lPageInterval
+			},
+			r : {
+				queueType : param.rQueueType,
+				hidden : param.rHidden,
+				colName : {
+					sortNo : param.rsortNo,
+					queueCode : param.rqueueCode,
+					custName : param.rcustName
+				},
+				pageInterval : param.rPageInterval
+			}
+    	};
+    	
+    	//后台返回的参数优先级高于config.js的参数配置
+    	conf = extend(config, conf, true);
+    	
+    	return conf;
+    },
+    //添加定时任务
+    addInterval : function(func, time, id, name){
+    	if(!this.intv){
+    		this.intv = {};
+    	}
+    	
+    	if(!id || this.intv[id]) return;
+    	
+    	this.intv[id] = setInterval(function(){
+    		func();
+    		console.log("[ " + name + " ]定时任务被执行.");
+    	}, time);
+    	
+    	return this.intv[id];
+    }
 }
 
 jiaohao.init();
